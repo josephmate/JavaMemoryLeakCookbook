@@ -1,3 +1,9 @@
+*~
+*.swp
+target/
+# Java heap dump files
+*.hprof
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
