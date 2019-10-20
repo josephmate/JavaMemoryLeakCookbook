@@ -18,10 +18,15 @@ Heap dump file created
 ```
 
 Try it yourself by checking out the
-(JavaMemoryLeakCookbook project)[https://github.com/josephmate/JavaMemoryLeakCookbook]
+[JavaMemoryLeakCookbook project](https://github.com/josephmate/JavaMemoryLeakCookbook)
 .
 
 # 2. Avoid -F force 
+When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
+
+```
+```
+
 
 # 3. User
 # 4. SE Linux
@@ -30,3 +35,4 @@ Try it yourself by checking out the
 # 7. How far apart the versions can be
 # 8. Core dump
 # 9. jmap under the hood
+

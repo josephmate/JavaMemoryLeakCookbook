@@ -5,6 +5,7 @@ $workingDir=(Get-Item -Path ".\" -Verbose).FullName
 $p=Start-Process -FilePath "java" -ArgumentList '-cp','target/lib/*;target\use.heap.service-1.0-SNAPSHOT.jar','Server' -PassThru
 
 # wait 10 seconds for the memory to load
+# TODO use localhost:4567/health to figure out when the service is ready
 Start-Sleep -s 10
 
 # generate the heap dump
