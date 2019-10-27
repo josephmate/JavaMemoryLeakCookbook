@@ -4,6 +4,13 @@ target/
 # Java heap dump files
 *.hprof
 
+# intellij
+.idea/
+*.iml
+
+# visual vm
+*.hwcache/
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof

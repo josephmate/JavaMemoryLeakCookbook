@@ -22,11 +22,9 @@ Try it yourself by checking out the
 .
 
 # 2. Avoid -F force 
-When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
+When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, somtimes tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
 
-```
-```
-
+Unfortunately, I haven't been able to to reproduce this problem a saw a year ago. Next step is to setup a situation where I need to use force. Maybe it was able to attach ignoring -F.
 
 # 3. User
 # 4. SE Linux
