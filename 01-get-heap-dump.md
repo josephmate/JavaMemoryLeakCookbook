@@ -27,6 +27,12 @@ When jmap doesn't work, you might be attempt to use jmap -F flag because that's 
 Unfortunately, I haven't been able to to reproduce this problem a saw a year ago. Next step is to setup a situation where I need to use force. Maybe it was able to attach ignoring -F.
 
 # 3. User
+# 4. Alpine Docker
+```
+docker exec -i -t --user notroot bbebacf1d6dec53d45502310964a08290751c0c586b9753f3e17fbc2c4f3bfc9 ash
+/ # jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+1: Unable to get pid of LinuxThreads manager thread
+```
 # 4. SE Linux
 # 5. Only JRE
 # 6. GC or CPU Overloaded
