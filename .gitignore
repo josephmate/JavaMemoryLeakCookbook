@@ -1,5 +1,6 @@
 *~
 *.swp
+*.swo
 target/
 # Java heap dump files
 *.hprof
