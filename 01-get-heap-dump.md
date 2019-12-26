@@ -27,12 +27,31 @@ When jmap doesn't work, you might be attempt to use jmap -F flag because that's 
 Unfortunately, I haven't been able to to reproduce this problem a saw a year ago. Next step is to setup a situation where I need to use force. Maybe it was able to attach ignoring -F.
 
 # 3. User
+Running jmap as root, you would expected to be able get a heap dump. However, that's not the case.
+```
+# run docker image that has a java process running under notroot
+$dockerId = docker run --init -d -p 4567:4567 com.josephmate/using.heap.service:1.0-SNAPSHOT
+# open a terminal to the container
+docker exec -i -t --user root $dockerId ash
+jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+```
+
 # 4. Alpine Docker
 ```
 docker exec -i -t --user notroot bbebacf1d6dec53d45502310964a08290751c0c586b9753f3e17fbc2c4f3bfc9 ash
 / # jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 1: Unable to get pid of LinuxThreads manager thread
+
+According to
+[Github issue: Not able to run jmap, jstack, jcmd on alpine](https://github.com/docker-library/openjdk/issues/372)
+and
+[Github issue: jmap not happy on alpine](https://github.com/docker-library/openjdk/issues/76),
+jmap fails to attach to pid 1.
 ```
+
+Passing `--init` to `docker run` solves the issue:
+
+
 # 4. SE Linux
 # 5. Only JRE
 # 6. GC or CPU Overloaded
