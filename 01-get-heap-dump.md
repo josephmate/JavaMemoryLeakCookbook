@@ -29,7 +29,7 @@ Unfortunately, I haven't been able to to reproduce this problem a saw a year ago
 # 3. User
 ```
 # run docker image that has a java process running under notroot
-$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/using.heap.service:1.0-SNAPSHOT
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 # open a root terminal to the container
 docker exec --interactive --tty --user root $dockerId ash
 # try jmap to create a heapdump
@@ -48,7 +48,7 @@ Heap dump file created
 
 # 4. Alpine Docker
 ```
-$dockerId = docker run -detach --publish 4567:4567 com.josephmate/using.heap.service:1.0-SNAPSHOT
+$dockerId = docker run -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId ash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 1: Unable to get pid of LinuxThreads manager thread
@@ -62,7 +62,7 @@ jmap fails to attach to pid 1.
 
 Passing `--init` to `docker run` solves the issue:
 ```
-$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/using.heap.service:1.0-SNAPSHOT
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId ash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 ```

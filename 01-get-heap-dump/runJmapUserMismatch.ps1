@@ -1,5 +1,5 @@
 # run docker image that has a java process running under notroot
-$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/using.heap.service:1.0-SNAPSHOT
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 # open a root terminal to the container
 docker exec --interactive --tty --user root $dockerId ash
 # try jmap to create a heapdump
