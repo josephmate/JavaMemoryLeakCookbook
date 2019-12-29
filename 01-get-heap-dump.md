@@ -24,6 +24,41 @@ Try it yourself by checking out the
 # 2. Avoid -F force 
 When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, somtimes tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
 
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos:1.0-SNAPSHOT
+docker exec --interactive --tty --user root $dockerId bash
+PIDOF_JAVA=$(ps aux | grep [j]ava | grep -v docker | awk '{print $2}')
+jmap -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
+6: Unable to open socket file: target process not responding or HotSpot VM not loaded
+The -F option can be used when the target process is not responding
+jmap -dump:live,format=b,file=/tmp/heap.hprof -F $PIDOF_JAVA
+jmap -F -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
+Attaching to process ID 6, please wait...
+Error attaching to process: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
+sun.jvm.hotspot.debugger.DebuggerException: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.execute(LinuxDebuggerLocal.java:163)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal.attach(LinuxDebuggerLocal.java:278)
+        at sun.jvm.hotspot.HotSpotAgent.attachDebugger(HotSpotAgent.java:671)
+        at sun.jvm.hotspot.HotSpotAgent.setupDebuggerLinux(HotSpotAgent.java:611)
+        at sun.jvm.hotspot.HotSpotAgent.setupDebugger(HotSpotAgent.java:337)
+        at sun.jvm.hotspot.HotSpotAgent.go(HotSpotAgent.java:304)
+        at sun.jvm.hotspot.HotSpotAgent.attach(HotSpotAgent.java:140)
+        at sun.jvm.hotspot.tools.Tool.start(Tool.java:185)
+        at sun.jvm.hotspot.tools.Tool.execute(Tool.java:118)
+        at sun.jvm.hotspot.tools.HeapDumper.main(HeapDumper.java:83)
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at sun.tools.jmap.JMap.runTool(JMap.java:201)
+        at sun.tools.jmap.JMap.main(JMap.java:130)
+Caused by: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal.attach0(Native Method)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal.access$100(LinuxDebuggerLocal.java:62)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$1AttachTask.doit(LinuxDebuggerLocal.java:269)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.run(LinuxDebuggerLocal.java:138)
+```
+
 Unfortunately, I haven't been able to to reproduce this problem a saw a year ago. Next step is to setup a situation where I need to use force. Maybe it was able to attach ignoring -F.
 
 # 3. User

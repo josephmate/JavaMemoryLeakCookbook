@@ -18,6 +18,7 @@
         <module>count.hprof</module>
         <module>use.heap.service</module>
         <module>use.heap.service.docker.alpine</module>
+        <module>use.heap.service.docker.centos</module>
     </modules>
 	
 </project>
