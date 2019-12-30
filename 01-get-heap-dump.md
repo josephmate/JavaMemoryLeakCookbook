@@ -24,6 +24,29 @@ Try it yourself by checking out the
 # 2. Avoid -F force 
 When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, somtimes tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
 
+
+Alpine doesn't have -F flag:
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
+docker exec --interactive --tty --user root $dockerId ash
+jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+6: Unable to open socket file: target process not responding or HotSpot VM not loaded
+
+jmap -F -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+Usage:
+    jmap -histo <pid>
+      (to connect to running process and print histogram of java object heap
+    jmap -dump:<dump-options> <pid>
+      (to connect to running process and dump java heap)
+
+    dump-options:
+      format=b     binary default
+      file=<file>  dump heap to <file>
+
+    Example:       jmap -dump:format=b,file=heap.bin <pid>
+```
+
+Centos7 fails with
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId bash
@@ -31,8 +54,41 @@ PIDOF_JAVA=$(ps aux | grep [j]ava | grep -v docker | awk '{print $2}')
 jmap -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
 6: Unable to open socket file: target process not responding or HotSpot VM not loaded
 The -F option can be used when the target process is not responding
-jmap -dump:live,format=b,file=/tmp/heap.hprof -F $PIDOF_JAVA
 jmap -F -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
+Attaching to process ID 6, please wait...
+Error attaching to process: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
+sun.jvm.hotspot.debugger.DebuggerException: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.execute(LinuxDebuggerLocal.java:163)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal.attach(LinuxDebuggerLocal.java:278)
+        at sun.jvm.hotspot.HotSpotAgent.attachDebugger(HotSpotAgent.java:671)
+        at sun.jvm.hotspot.HotSpotAgent.setupDebuggerLinux(HotSpotAgent.java:611)
+        at sun.jvm.hotspot.HotSpotAgent.setupDebugger(HotSpotAgent.java:337)
+        at sun.jvm.hotspot.HotSpotAgent.go(HotSpotAgent.java:304)
+        at sun.jvm.hotspot.HotSpotAgent.attach(HotSpotAgent.java:140)
+        at sun.jvm.hotspot.tools.Tool.start(Tool.java:185)
+        at sun.jvm.hotspot.tools.Tool.execute(Tool.java:118)
+        at sun.jvm.hotspot.tools.HeapDumper.main(HeapDumper.java:83)
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at sun.tools.jmap.JMap.runTool(JMap.java:201)
+        at sun.tools.jmap.JMap.main(JMap.java:130)
+Caused by: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal.attach0(Native Method)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal.access$100(LinuxDebuggerLocal.java:62)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$1AttachTask.doit(LinuxDebuggerLocal.java:269)
+        at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.run(LinuxDebuggerLocal.java:138)
+```
+
+Centos6
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos6:1.0-SNAPSHOT
+docker exec --interactive --tty --user root $dockerId bash
+PIDOF_JAVA=$(ps aux | grep [j]ava | grep -v docker | awk '{print $2}')
+jmap -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
+6: Unable to open socket file: target process not responding or HotSpot VM not loaded
+The -F option can be used when the target process is not responding
 Attaching to process ID 6, please wait...
 Error attaching to process: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
 sun.jvm.hotspot.debugger.DebuggerException: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file

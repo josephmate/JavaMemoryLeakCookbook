@@ -19,6 +19,7 @@
         <module>use.heap.service</module>
         <module>use.heap.service.docker.alpine</module>
         <module>use.heap.service.docker.centos</module>
+        <module>use.heap.service.docker.centos6</module>
     </modules>
 	
 </project>
