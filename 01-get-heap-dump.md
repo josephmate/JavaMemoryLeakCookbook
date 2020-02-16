@@ -226,6 +226,7 @@ OpenJ9 JDKs 8, 11, 12, and 13 do not support the jmap -dump option and JDK9 does
 
 <details>
 <summary>Click to see JDK8 not recognizing the -dump option</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk8:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
@@ -246,6 +247,7 @@ At least one option must be selected.
 
 <details>
 <summary>Click to see JDK9 not having jmap</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk9:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
@@ -256,6 +258,7 @@ bash: jmap: command not found
 
 <details>
 <summary>Click to see JDK11 not recognizing the -dump option</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk11:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
@@ -276,6 +279,7 @@ At least one option must be selected.
 
 <details>
 <summary>Click to see JDK12 not recognizing the -dump option</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk12:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
@@ -297,6 +301,7 @@ At least one option must be selected.
 
 <details>
 <summary>Click to see JDK13 not recognizing the -dump option</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk13:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
