@@ -20,6 +20,11 @@
         <module>use.heap.service.docker.alpine</module>
         <module>use.heap.service.docker.centos</module>
         <module>use.heap.service.docker.centos6</module>
+        <module>use.heap.service.docker.openj9.jdk8</module>
+        <module>use.heap.service.docker.openj9.jdk9</module>
+        <module>use.heap.service.docker.openj9.jdk11</module>
+        <module>use.heap.service.docker.openj9.jdk12</module>
+        <module>use.heap.service.docker.openj9.jdk13</module>
     </modules>
 	
 </project>
