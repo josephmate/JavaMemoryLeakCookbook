@@ -29,7 +29,7 @@ Alpine doesn't have -F flag:
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId ash
-jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+jmap -F -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 6: Unable to open socket file: target process not responding or HotSpot VM not loaded
 
 jmap -F -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -51,7 +51,7 @@ Centos7 fails with
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId bash
 PIDOF_JAVA=$(ps aux | grep [j]ava | grep -v docker | awk '{print $2}')
-jmap -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
+jmap -F -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
 6: Unable to open socket file: target process not responding or HotSpot VM not loaded
 The -F option can be used when the target process is not responding
 jmap -F -dump:live,format=b,file=/tmp/heap.hprof $PIDOF_JAVA
@@ -115,9 +115,7 @@ Caused by: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
         at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.run(LinuxDebuggerLocal.java:138)
 ```
 
-After deep diving into the openJDK source, it looks like jmap was trying to open /proc/6/exe [1][2] but was unable. I think if I use sudo, root should then be able to open /proce/6/exe.
-
-
+After deep diving into the openJDK source, it looks like jmap was trying to open /proc/6/exe [1][2] but was unable. 
 
 [1] [LinuxDebuggerLocal.c](https://github.com/openjdk/jdk13/blob/master/src/jdk.hotspot.agent/linux/native/libsaproc/LinuxDebuggerLocal.c) (jdk13, but should be similar to 8)
 ```c++
@@ -164,7 +162,6 @@ JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_at
         workerThread.execute(task);
     }
 ```
-
 
 Unfortunately, I haven't been able to to reproduce this problem a saw a year ago. Next step is to setup a situation where I need to use force. Maybe it was able to attach ignoring -F.
 
@@ -317,5 +314,69 @@ jmap: obtain heap information about a Java process
     -J: supply arguments to the Java VM running jmap
 NOTE: this utility may significantly affect the performance of the target VM.
 At least one option must be selected.
+```
+</details>
+
+
+Instead you can use jcmd in jdk 13 to trigger a heap dump:
+<details>
+<summary>Click to see JDK 13 creating a heap dump using jcmd</summary>
+
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk13:1.0-SNAPSHOT
+docker exec --interactive --tty --user notroot $dockerId bash
+jcmd $(pidof java) Dump.heap myHeapDump.hprof
+Dump written to /tmp/myHeapDump.hprof
+```
+</details>
+
+Unfortunately, jcmd is not found in jdk 8, 9, 11, 12
+<details>
+<summary>Click to see JDK8 not having jcmd</summary>
+
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk8:1.0-SNAPSHOT
+docker exec --interactive --tty --user notroot $dockerId bash
+jcmd $(pidof java) Dump.heap myHeapDump.hprof
+bash: jcmd: command not found
+exit
+docker kill $dockerId
+```
+</details>
+<details>
+<summary>Click to see JDK9 not having jcmd</summary>
+
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk9:1.0-SNAPSHOT
+docker exec --interactive --tty --user notroot $dockerId bash
+jcmd $(pidof java) Dump.heap myHeapDump.hprof
+bash: jcmd: command not found
+exit
+docker kill $dockerId
+```
+</details>
+<details>
+<summary>Click to see JDK11 not having jcmd</summary>
+
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk11:1.0-SNAPSHOT
+docker exec --interactive --tty --user notroot $dockerId bash
+jcmd $(pidof java) Dump.heap myHeapDump.hprof
+bash: jcmd: command not found
+exit
+docker kill $dockerId
+```
+</details>
+
+<details>
+<summary>Click to see JDK13 not recognizing the -dump option</summary>
+
+```
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk12:1.0-SNAPSHOT
+docker exec --interactive --tty --user notroot $dockerId bash
+jcmd $(pidof java) Dump.heap myHeapDump.hprof
+bash: jcmd: command not found
+exit
+docker kill $dockerId
 ```
 </details>
