@@ -6,9 +6,9 @@ Analyzing the heap dump allows you to determine the root cause of memory leaks.
 You can also explore a heap dump to figure out bugs when the JVM cannot be attached by a debugger.
 For instance, if the JVM runs at a customer, and they do not permit you to attached a debugger.
 
-This article focuses on how to obtain a heap dump and all the issues you will run into while getting one.
+This article focuses on all the nitty gritty details of how to obtain a heap dump and all the issues you will run into on various environments.
 
-# 2. Vanilla
+# 2. No Issues
 [jmap](https://docs.oracle.com/javase/7/docs/technotes/tools/share/jmap.html) provides the easiest way to get a heap.
 
 ```bash
@@ -21,11 +21,33 @@ Try it yourself by checking out the
 [JavaMemoryLeakCookbook project](https://github.com/josephmate/JavaMemoryLeakCookbook)
 .
 
-# 2. Avoid -F force 
-When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, somtimes tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
 
+# 2. Cannot Run jmap as Different User
+```
+# run docker image that has a java process running under notroot
+$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
+# open a root terminal to the container
+docker exec --interactive --tty --user root $dockerId ash
+# try jmap to create a heapdump
+jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+6: Unable to open socket file: target process not responding or HotSpot VM not loaded
+```
+Even though I'm root, I'm unable to attach.
+However if I try using the correct user, jmap is able to attach and trigger the heap dump.
+```
+# open a notroot terminal to the container
+docker exec --interactive --tty --user notroot $dockerId ash
+jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+Dumping heap to /tmp/heap.hprof ...
+Heap dump file created
+```
 
-Alpine doesn't have -F flag:
+# 3. Difference user, jmap -F doesn't work at all on docker
+When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, sometimes tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
+
+<details>
+<summary>Alpine doesn't have -F flag: click to expand and see the details of the docker experiment</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId ash
@@ -45,8 +67,12 @@ Usage:
 
     Example:       jmap -dump:format=b,file=heap.bin <pid>
 ```
+</details>
 
-Centos7 fails with
+
+<details>
+<summary>Centos7 fails with DebuggerException: cannot open binary file. Expand see to see details</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId bash
@@ -80,8 +106,11 @@ Caused by: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
         at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$1AttachTask.doit(LinuxDebuggerLocal.java:269)
         at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.run(LinuxDebuggerLocal.java:138)
 ```
+</details>
 
-Centos6
+<details>
+<summary>Centos6 has the same DebuggerException. Expand see to see details</summary>
+
 ```
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos6:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId bash
@@ -114,10 +143,15 @@ Caused by: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
         at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$1AttachTask.doit(LinuxDebuggerLocal.java:269)
         at sun.jvm.hotspot.debugger.linux.LinuxDebuggerLocal$LinuxDebuggerLocalWorkerThread.run(LinuxDebuggerLocal.java:138)
 ```
+</details>
 
 After deep diving into the openJDK source, it looks like jmap was trying to open /proc/6/exe [1][2] but was unable. 
 
+
 [1] [LinuxDebuggerLocal.c](https://github.com/openjdk/jdk13/blob/master/src/jdk.hotspot.agent/linux/native/libsaproc/LinuxDebuggerLocal.c) (jdk13, but should be similar to 8)
+<details>
+<summary>Click to expand and see the native code that fails from LinuxDebuggerLocal.c</summary>
+
 ```c++
 JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_attach0__I
   (JNIEnv *env, jobject this_obj, jint jpid) {
@@ -139,8 +173,12 @@ JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_at
   fillThreadsAndLoadObjects(env, this_obj, ph);
 }
 ```
+</details>
 
 [2] [LinuxDebuggerLocal.java](https://github.com/infobip/infobip-open-jdk-8/blob/master/hotspot/agent/src/share/classes/sun/jvm/hotspot/debugger/linux/LinuxDebuggerLocal.java#L269) (a copy of the openjdk8 source code) 
+<details>
+<summary>Click to expand and see the java code that fails from LinuxDebuggerLocal.java</summary>
+
 ```
     /** From the Debugger interface via JVMDebugger */
     public synchronized void attach(int processID) throws DebuggerException {
@@ -162,30 +200,62 @@ JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_at
         workerThread.execute(task);
     }
 ```
+</details>
 
-Unfortunately, I haven't been able to to reproduce this problem a saw a year ago. Next step is to setup a situation where I need to use force. Maybe it was able to attach ignoring -F.
+# 4. Difference User, Force with jmap -F makes a corrupt file
+Since I wasn't able to reproduce the problem with docker. I setup a Centos6 VM with a root user and notroot user.
+```
+scp -r .\01-get-heap-dump\use.heap.service\target\lib notroot@192.168.56.101:/home/notroot
+scp .\01-get-heap-dump\use.heap.service\target\use.heap.service-1.0-SNAPSHOT.jar notroot@192.168.56.101:/home/notroot
+ssh notroot@192.168.56.101
+sudo yum install java-1.8.0-openjdk-devel
+nohup java -cp lib/*:use.heap.service-1.0-SNAPSHOT.jar Server
+logout
+ssh root@192.168.56.101
+# without -F fails as expected
+jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+2103: Unable to open socket file: target process not responding or HotSpot VM not loaded
+The -F option can be used when the target process is not responding
 
-# 3. User
-```
-# run docker image that has a java process running under notroot
-$dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
-# open a root terminal to the container
-docker exec --interactive --tty --user root $dockerId ash
-# try jmap to create a heapdump
-jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
-6: Unable to open socket file: target process not responding or HotSpot VM not loaded
-```
-Even though I'm root, I'm unable to attach.
-However if I try using the correct user, jmap is able to attach and trigger the heap dump.
-```
-# open a notroot terminal to the container
-docker exec --interactive --tty --user notroot $dockerId ash
-jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+# -F still does not work:
+jmap -F -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+Attaching to process ID 2103, please wait...
+Debugger attached successfully.
+Server compiler detected.
+JVM version is 25.242-b07
 Dumping heap to /tmp/heap.hprof ...
-Heap dump file created
+Exception in thread "main" java.lang.reflect.InvocationTargetException
+        at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+        at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+        at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.lang.reflect.Method.invoke(Method.java:498)
+        at sun.tools.jmap.JMap.runTool(JMap.java:201)
+        at sun.tools.jmap.JMap.main(JMap.java:130)
+Caused by: java.lang.InternalError: Metadata does not appear to be polymorphic
+        at sun.jvm.hotspot.types.basic.BasicTypeDataBase.findDynamicTypeForAddress(BasicTypeDataBase.java:278)
+        at sun.jvm.hotspot.runtime.VirtualBaseConstructor.instantiateWrapperFor(VirtualBaseConstructor.java:102)
+        at sun.jvm.hotspot.oops.Metadata.instantiateWrapperFor(Metadata.java:68)
+        at sun.jvm.hotspot.memory.DictionaryEntry.klass(DictionaryEntry.java:71)
+        at sun.jvm.hotspot.memory.Dictionary.classesDo(Dictionary.java:66)
+        at sun.jvm.hotspot.memory.SystemDictionary.classesDo(SystemDictionary.java:190)
+        at sun.jvm.hotspot.memory.SystemDictionary.allClassesDo(SystemDictionary.java:183)
+        at sun.jvm.hotspot.utilities.HeapHprofBinWriter.writeClasses(HeapHprofBinWriter.java:954)
+        at sun.jvm.hotspot.utilities.HeapHprofBinWriter.write(HeapHprofBinWriter.java:427)
+        at sun.jvm.hotspot.tools.HeapDumper.run(HeapDumper.java:62)
+        at sun.jvm.hotspot.tools.Tool.startInternal(Tool.java:260)
+        at sun.jvm.hotspot.tools.Tool.start(Tool.java:223)
+        at sun.jvm.hotspot.tools.Tool.execute(Tool.java:118)
+        at sun.jvm.hotspot.tools.HeapDumper.main(HeapDumper.java:83)
+        ... 6 more
+
+ls -lah /tmp/heap.hprof
+-rw-r--r--. 1 root root 1.4M Feb 20 22:41 /tmp/heap.hprof
+
+# but that file is corrupted!
+# TODO: give evidence that the file generated is corrupted by invoking count heap tool
 ```
 
-# 4. Alpine Docker
+# 5. Alpine Docker jmap: Unable to get pid of LinuxThreads manager thread
 ```
 $dockerId = docker run -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId ash
@@ -205,20 +275,21 @@ $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.hea
 docker exec --interactive --tty --user notroot $dockerId ash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 ```
+Unfortunately, you will have to restart the container to be able to dump heap. Attach won't work without `--init`.
 
 
-# 4. SE Linux
-# 5. GC or CPU Overloaded
+# 6. SE Linux
+# 7. GC or CPU Overloaded
 
 
 
-# 6. Only JRE
-## 7. How far apart the versions can be
-## 8. Core dump
+# 8. Only JRE
+## 1. How far apart the versions can be
+## 2. Core dump
 
-# 7. jmap under the hood
+# 9. jmap under the hood
 
-# 8. Eclipse OpenJ9
+# 10. Eclipse OpenJ9
 OpenJ9 JDKs 8, 11, 12, and 13 do not support the jmap -dump option and JDK9 doesn't have jmap at all.
 
 <details>
@@ -330,7 +401,9 @@ Dump written to /tmp/myHeapDump.hprof
 ```
 </details>
 
-Unfortunately, jcmd is not found in jdk 8, 9, 11, 12
+Unfortunately, jcmd is not found in jdk 8, 9, 11, 12 which make sense because 
+[OpenJ9's Implement jcmd task](https://github.com/eclipse/openj9/issues/5164) says they placed jcmd only in in Release 0.16 JDK 13.
+As a result, for 8,9,11, and 12 I don't have a way getting the heap dump from an already running JVM.
 <details>
 <summary>Click to see JDK8 not having jcmd</summary>
 
