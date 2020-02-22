@@ -1,4 +1,4 @@
-# 1. Introduction
+# Introduction
 Heap dumps package the JVM's heap, stack, and threads into a binary format that can be loaded for analysis later.
 Numerous tools can be applied to analyze a heap dump: Memory Analyzer Tool, VisualVM, and my tool, [DumpHprofFields](https://github.com/josephmate/DumpHprofFields), for dumping an hprof as a csv.
 
@@ -10,9 +10,15 @@ This article focuses on all the nitty gritty details of how to obtain a heap dum
 
 In the experiments demonstrating the issues you will run into, I will be using docker where I can so you can easily setup same experiments and try for yourself. If I'm not able to use docker, then I mention what I did.
 
-The maven project to build the code and the docker images are available [here](https://github.com/josephmate/JavaMemoryLeakCookbook/tree/master/01-get-heap-dump). As long as you have docker,java and maven installed, you can build everything using `mvn clean install`.
+The maven project to build the code and the docker images are available in 
+[JavaMemoryLeakCookbook project](https://github.com/josephmate/JavaMemoryLeakCookbook).
+As long as you have docker,java and maven installed, you can build everything using `mvn clean install`.
 
-# 2. No Issues
+# Applications of Heap Dumps
+1. Diagnosing Memory Leaks
+2. Diagnosing a Bug
+
+# No Issues
 [jmap](https://docs.oracle.com/javase/7/docs/technotes/tools/share/jmap.html) provides the easiest way to get a heap.
 
 ```bash
@@ -21,12 +27,9 @@ Dumping heap to <pathToSaveFileTo> ...
 Heap dump file created
 ```
 
-Try it yourself by checking out the
-[JavaMemoryLeakCookbook project](https://github.com/josephmate/JavaMemoryLeakCookbook)
-.
 
 
-# 2. Cannot Run jmap as Different User
+# Cannot Run jmap as Different User
 ```powershell
 # run docker image that has a java process running under notroot
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
@@ -46,7 +49,7 @@ Dumping heap to /tmp/heap.hprof ...
 Heap dump file created
 ```
 
-# 3. Difference user, jmap -F doesn't work at all on docker
+# Different user, jmap -F doesn't work at all on docker
 When jmap doesn't work, you might be attempt to use jmap -F flag because that's what jmap suggests when it does not work. However, sometimes tools like VisualVM and MemoryAnalyzer tool will not be able to consume the heap dumped provided with the -F flag.
 
 <details>
@@ -206,7 +209,7 @@ JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_at
 ```
 </details>
 
-# 4. Difference User, Force with jmap -F makes a corrupt file
+# Different User, Force with jmap -F makes a corrupt file
 Since I wasn't able to reproduce the problem with docker. I setup a Centos6 VM with a root user and notroot user.
 ```bash
 scp -r .\01-get-heap-dump\use.heap.service\target\lib notroot@192.168.56.101:/home/notroot
@@ -272,7 +275,7 @@ java -cp libCountHprof/*:count.hprof-1.0-SNAPSHOT.jar CountHprof -hprof /tmp/cor
 
 ```
 
-# 5. Alpine Docker jmap: Unable to get pid of LinuxThreads manager thread
+# Alpine Docker jmap: Unable to get pid of LinuxThreads manager thread
 ```powershell
 $dockerId = docker run -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId ash
@@ -295,7 +298,7 @@ jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 Unfortunately, you will have to restart the container to be able to dump heap. Attach won't work without `--init`.
 
 
-# 6. SE Linux
+# SE Linux
 You can't setup SE Linux on docker image. As a result, for this section we setup a Centos7 VM with SE Linux
 
 ```bash
@@ -320,17 +323,19 @@ jmap -dump:live,format=b,file=/tmp/valid.heap.hprof $(pidof java)
 
 ```
 
-# 7. GC or CPU Overloaded
+# GC or CPU Overloaded
 
 
 
-# 8. Only JRE
-## 1. How far apart the versions can be
-## 2. Core dump
+# Only JRE or Using Old Version of OpenJ9
+If you only have JRE, or you're using an old version of OpenJ9, you might
 
-# 9. jmap under the hood
+## jmap: How far apart the JRE can be from the JDK
+## Core dump
 
-# 10. Eclipse OpenJ9
+# jmap under the hood
+
+# Eclipse OpenJ9
 OpenJ9 JDKs 8, 11, 12, and 13 do not support the jmap -dump option and JDK9 doesn't have jmap at all.
 
 <details>
