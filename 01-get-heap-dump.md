@@ -8,12 +8,16 @@ For instance, if the JVM runs at a customer, and they do not permit you to attac
 
 This article focuses on all the nitty gritty details of how to obtain a heap dump and all the issues you will run into on various environments.
 
+In the experiments demonstrating the issues you will run into, I will be using docker where I can so you can easily setup same experiments and try for yourself. If I'm not able to use docker, then I mention what I did.
+
+The maven project to build the code and the docker images are available [here](https://github.com/josephmate/JavaMemoryLeakCookbook/tree/master/01-get-heap-dump). As long as you have docker,java and maven installed, you can build everything using `mvn clean install`.
+
 # 2. No Issues
 [jmap](https://docs.oracle.com/javase/7/docs/technotes/tools/share/jmap.html) provides the easiest way to get a heap.
 
 ```bash
 jmap -dump:live,format=b,file=<pathToSaveFileTo> <pidOfJVM>
-Dumping heap to C:\Users\Joseph\Documents\GitHub\JavaMemoryLeakCookbook\01-get-heap-dump\heap.dump.windows.hprof ...
+Dumping heap to <pathToSaveFileTo> ...
 Heap dump file created
 ```
 
@@ -23,7 +27,7 @@ Try it yourself by checking out the
 
 
 # 2. Cannot Run jmap as Different User
-```
+```powershell
 # run docker image that has a java process running under notroot
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 # open a root terminal to the container
@@ -34,7 +38,7 @@ jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
 ```
 Even though I'm root, I'm unable to attach.
 However if I try using the correct user, jmap is able to attach and trigger the heap dump.
-```
+```powershell
 # open a notroot terminal to the container
 docker exec --interactive --tty --user notroot $dockerId ash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -48,7 +52,7 @@ When jmap doesn't work, you might be attempt to use jmap -F flag because that's 
 <details>
 <summary>Alpine doesn't have -F flag: click to expand and see the details of the docker experiment</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId ash
 jmap -F -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -73,7 +77,7 @@ Usage:
 <details>
 <summary>Centos7 fails with DebuggerException: cannot open binary file. Expand see to see details</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId bash
 PIDOF_JAVA=$(ps aux | grep [j]ava | grep -v docker | awk '{print $2}')
@@ -111,7 +115,7 @@ Caused by: sun.jvm.hotspot.debugger.DebuggerException: cannot open binary file
 <details>
 <summary>Centos6 has the same DebuggerException. Expand see to see details</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.centos6:1.0-SNAPSHOT
 docker exec --interactive --tty --user root $dockerId bash
 PIDOF_JAVA=$(ps aux | grep [j]ava | grep -v docker | awk '{print $2}')
@@ -179,7 +183,7 @@ JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_at
 <details>
 <summary>Click to expand and see the java code that fails from LinuxDebuggerLocal.java</summary>
 
-```
+```java
     /** From the Debugger interface via JVMDebugger */
     public synchronized void attach(int processID) throws DebuggerException {
         checkAttached();
@@ -269,7 +273,7 @@ java -cp libCountHprof/*:count.hprof-1.0-SNAPSHOT.jar CountHprof -hprof /tmp/cor
 ```
 
 # 5. Alpine Docker jmap: Unable to get pid of LinuxThreads manager thread
-```
+```powershell
 $dockerId = docker run -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId ash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -283,7 +287,7 @@ and
 jmap fails to attach to pid 1.
 
 Passing `--init` to `docker run` solves the issue:
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.alpine:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId ash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -294,7 +298,25 @@ Unfortunately, you will have to restart the container to be able to dump heap. A
 # 6. SE Linux
 You can't setup SE Linux on docker image. As a result, for this section we setup a Centos7 VM with SE Linux
 
-```
+```bash
+scp -r .\01-get-heap-dump\use.heap.service\target\lib notroot@192.168.56.103:/home/notroot
+scp .\01-get-heap-dump\use.heap.service\target\use.heap.service-1.0-SNAPSHOT.jar notroot@192.168.56.103:/home/notroot
+scp -r .\01-get-heap-dump\count.hprof\target\lib notroot@192.168.56.103:/home/notroot/libCountHprof
+scp .\01-get-heap-dump\count.hprof\target\count.hprof-1.0-SNAPSHOT.jar notroot@192.168.56.103:/home/notroot
+
+ssh root@192.168.56.103
+yum install java-1.8.0-openjdk-devel
+yum install policycoreutils policycoreutils-python selinux-policy selinux-policy-targeted libselinux-utils setools setools-console
+reboot
+
+
+ssh notroot@192.168.56.103
+nohup java -cp lib/*:use.heap.service-1.0-SNAPSHOT.jar Server &
+# works as expected
+jmap -dump:live,format=b,file=/tmp/valid.heap.hprof $(pidof java)
+
+# TODO figure out what selinux policies were need to cause jmap to fail
+# TODO figure out what error message looks like in the selinux audit logs
 
 ```
 
@@ -314,7 +336,7 @@ OpenJ9 JDKs 8, 11, 12, and 13 do not support the jmap -dump option and JDK9 does
 <details>
 <summary>Click to see JDK8 not recognizing the -dump option</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk8:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -335,7 +357,7 @@ At least one option must be selected.
 <details>
 <summary>Click to see JDK9 not having jmap</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk9:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -346,7 +368,7 @@ bash: jmap: command not found
 <details>
 <summary>Click to see JDK11 not recognizing the -dump option</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk11:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -367,7 +389,7 @@ At least one option must be selected.
 <details>
 <summary>Click to see JDK12 not recognizing the -dump option</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk12:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -389,7 +411,7 @@ At least one option must be selected.
 <details>
 <summary>Click to see JDK13 not recognizing the -dump option</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk13:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
@@ -412,7 +434,7 @@ Instead you can use jcmd in jdk 13 to trigger a heap dump:
 <details>
 <summary>Click to see JDK 13 creating a heap dump using jcmd</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk13:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jcmd $(pidof java) Dump.heap myHeapDump.hprof
@@ -426,7 +448,7 @@ As a result, for 8,9,11, and 12 I don't have a way getting the heap dump from an
 <details>
 <summary>Click to see JDK8 not having jcmd</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk8:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jcmd $(pidof java) Dump.heap myHeapDump.hprof
@@ -438,7 +460,7 @@ docker kill $dockerId
 <details>
 <summary>Click to see JDK9 not having jcmd</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk9:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jcmd $(pidof java) Dump.heap myHeapDump.hprof
@@ -450,7 +472,7 @@ docker kill $dockerId
 <details>
 <summary>Click to see JDK11 not having jcmd</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk11:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jcmd $(pidof java) Dump.heap myHeapDump.hprof
@@ -463,7 +485,7 @@ docker kill $dockerId
 <details>
 <summary>Click to see JDK13 not recognizing the -dump option</summary>
 
-```
+```powershell
 $dockerId = docker run --init -detach --publish 4567:4567 com.josephmate/use.heap.service.openj9.jdk12:1.0-SNAPSHOT
 docker exec --interactive --tty --user notroot $dockerId bash
 jcmd $(pidof java) Dump.heap myHeapDump.hprof
