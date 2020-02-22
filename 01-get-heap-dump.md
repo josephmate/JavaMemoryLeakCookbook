@@ -204,21 +204,27 @@ JNIEXPORT void JNICALL Java_sun_jvm_hotspot_debugger_linux_LinuxDebuggerLocal_at
 
 # 4. Difference User, Force with jmap -F makes a corrupt file
 Since I wasn't able to reproduce the problem with docker. I setup a Centos6 VM with a root user and notroot user.
-```
+```bash
 scp -r .\01-get-heap-dump\use.heap.service\target\lib notroot@192.168.56.101:/home/notroot
 scp .\01-get-heap-dump\use.heap.service\target\use.heap.service-1.0-SNAPSHOT.jar notroot@192.168.56.101:/home/notroot
+scp -r .\01-get-heap-dump\count.hprof\target\lib notroot@192.168.56.101:/home/notroot/libCountHprof
+scp .\01-get-heap-dump\count.hprof\target\count.hprof-1.0-SNAPSHOT.jar notroot@192.168.56.101:/home/notroot
 ssh notroot@192.168.56.101
 sudo yum install java-1.8.0-openjdk-devel
-nohup java -cp lib/*:use.heap.service-1.0-SNAPSHOT.jar Server
+nohup java -cp lib/*:use.heap.service-1.0-SNAPSHOT.jar Server &
+# works as expected
+jmap -dump:live,format=b,file=/tmp/valid.heap.hprof $(pidof java)
+Dumping heap to /tmp/valid.heap.hprof ...
+Heap dump file created
 logout
 ssh root@192.168.56.101
 # without -F fails as expected
-jmap -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+jmap -dump:live,format=b,file=/tmp/corrupted.heap.hprof $(pidof java)
 2103: Unable to open socket file: target process not responding or HotSpot VM not loaded
 The -F option can be used when the target process is not responding
 
 # -F still does not work:
-jmap -F -dump:live,format=b,file=/tmp/heap.hprof $(pidof java)
+jmap -F -dump:live,format=b,file=/tmp/corrupted.heap.hprof $(pidof java)
 Attaching to process ID 2103, please wait...
 Debugger attached successfully.
 Server compiler detected.
@@ -248,11 +254,18 @@ Caused by: java.lang.InternalError: Metadata does not appear to be polymorphic
         at sun.jvm.hotspot.tools.HeapDumper.main(HeapDumper.java:83)
         ... 6 more
 
-ls -lah /tmp/heap.hprof
--rw-r--r--. 1 root root 1.4M Feb 20 22:41 /tmp/heap.hprof
+ls -lah  /tmp/*.heap.hprof
+-rw-r--r--. 1 root    root    1.4M Feb 21 19:48 /tmp/corrupted.heap.hprof
+-rw-------. 1 notroot notroot 3.8M Feb 21 19:44 /tmp/valid.heap.hprof
 
 # but that file is corrupted!
-# TODO: give evidence that the file generated is corrupted by invoking count heap tool
+cd /home/notroot
+java -cp libCountHprof/*:count.hprof-1.0-SNAPSHOT.jar CountHprof -hprof /tmp/valid.heap.hprof
+23563
+java -cp libCountHprof/*:count.hprof-1.0-SNAPSHOT.jar CountHprof -hprof /tmp/corrupted.heap.hprof
+0
+
+
 ```
 
 # 5. Alpine Docker jmap: Unable to get pid of LinuxThreads manager thread
@@ -279,6 +292,12 @@ Unfortunately, you will have to restart the container to be able to dump heap. A
 
 
 # 6. SE Linux
+You can't setup SE Linux on docker image. As a result, for this section we setup a Centos7 VM with SE Linux
+
+```
+
+```
+
 # 7. GC or CPU Overloaded
 
 
