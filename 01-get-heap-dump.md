@@ -315,7 +315,7 @@ reboot
 
 ssh notroot@192.168.56.103
 nohup java -cp lib/*:use.heap.service-1.0-SNAPSHOT.jar Server &
-# works as expected
+# does not work
 jmap -dump:live,format=b,file=/tmp/valid.heap.hprof $(pidof java)
 
 # TODO figure out what selinux policies were need to cause jmap to fail
